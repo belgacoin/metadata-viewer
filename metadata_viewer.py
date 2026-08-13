@@ -42,6 +42,31 @@ def install_hint(tool: str) -> str:
     return f"apt install {tool}"
 
 
+# Set on every subprocess we spawn. If we ever start up with it set, we were
+# launched by ourselves — refuse to open a window rather than multiply.
+CHILD_MARKER = "METADATA_VIEWER_CHILD"
+
+
+@functools.lru_cache(maxsize=1)
+def python_interpreter() -> str | None:
+    """A real Python for running the skill's helper scripts.
+
+    In a frozen app sys.executable is the app bundle itself, so using it would
+    relaunch the GUI instead of running a script — once per opened file, which
+    multiplies without bound.
+    """
+    if getattr(sys, "frozen", False):
+        return shutil.which("python3") or shutil.which("python")
+    return sys.executable
+
+
+def child_env() -> dict[str, str]:
+    """Environment for helper subprocesses, marked so they cannot recurse."""
+    env = dict(os.environ)
+    env[CHILD_MARKER] = "1"
+    return env
+
+
 @functools.lru_cache(maxsize=None)
 def find_tool(name: str) -> str | None:
     """A helper binary shipped with the app, else whatever is on PATH."""
@@ -186,12 +211,16 @@ def run_skill_inspect(path: str) -> dict[str, object] | None:
         # The skill would read raw PCM as text and report thousands of bogus
         # "suspicious Unicode" hits. It has no audio/video analysis anyway.
         return None
+    python = python_interpreter()
+    if not python:
+        return None
     try:
         proc = subprocess.run(
-            [sys.executable, str(script), "--json", path],
+            [python, str(script), "--json", path],
             capture_output=True,
             text=True,
             timeout=120,
+            env=child_env(),
         )
         return json.loads(proc.stdout)
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
@@ -936,12 +965,14 @@ def wipe_metadata(path: str, output: str | None, keep_non_ai: bool) -> dict[str,
         return {"engine": "ingebouwd", "input": path, "output": final, "actions": actions}
 
     script = SKILL_SCRIPTS / "clean_file.py"
-    if script.exists():
-        cmd = [sys.executable, str(script), path, "--json"]
+    python = python_interpreter()
+    if script.exists() and python:
+        cmd = [python, str(script), path, "--json"]
         cmd += ["--in-place"] if output is None else ["-o", output]
         if keep_non_ai:
             cmd.append("--keep-non-ai-metadata")
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300,
+                              env=child_env())
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.strip() or "clean_file.py mislukte")
         try:
@@ -1613,6 +1644,13 @@ class MetadataViewer(ttk.Frame):
 
 
 def main() -> None:
+    # Circuit breaker: a helper subprocess must never turn into a second GUI.
+    # Without this, one bad interpreter path multiplies windows without bound.
+    if os.environ.get(CHILD_MARKER):
+        print("Metadata Viewer: gestart als hulpproces, geen venster geopend.",
+              file=sys.stderr)
+        return
+
     root = tk.Tk()
     root.title(APP_TITLE)
     root.geometry("1000x640")
