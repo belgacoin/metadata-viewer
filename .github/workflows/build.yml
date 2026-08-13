@@ -1,0 +1,43 @@
+name: Build
+
+# Builds the Windows .exe (and a macOS .dmg) on GitHub's runners, so no
+# Windows machine of your own is needed. Artifacts appear under the run.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        shell: pwsh
+        run: .\build_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metadata-viewer-windows
+          path: dist/*.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: |
+          brew install exiftool
+          python -m pip install --upgrade pyinstaller pillow mutagen
+      - name: Build
+        run: ./build_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metadata-viewer-macos
+          path: dist/*.dmg
