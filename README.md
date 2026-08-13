@@ -1,53 +1,105 @@
 # Metadata Viewer
 
-Grafische viewer, wisser en editor voor bestandsmetadata. Toont EXIF, XMP, IPTC,
-ID3, RIFF, C2PA en Office-eigenschappen, markeert AI-herkomst en privacygevoelige
-velden, en kan die aanpassen of verwijderen.
+A graphical viewer, wiper and editor for file metadata. Shows EXIF, XMP, IPTC,
+ID3, RIFF, C2PA and Office document properties, flags AI provenance traces and
+privacy-sensitive fields, and lets you change or remove them.
 
-## Draaien vanaf de broncode
+## Features
+
+- **Read** anything exiftool understands, grouped and searchable, plus a raw
+  byte scan that catches C2PA/JUMBF containers exiftool only reports as unknown
+  chunks.
+- **Flag** AI provenance (Suno, Udio, ElevenLabs, Gemini, OpenAI, Midjourney,
+  Stable Diffusion and others) in red, and privacy fields (GPS, artist, owner,
+  camera serial) in orange.
+- **Wipe** all metadata, or only the AI and C2PA traces while keeping the rest.
+- **Edit** individual tags, add new ones, delete others. Nothing touches disk
+  until you save, and saving writes to a copy by default.
+
+Audio streams stay bit-identical through both wiping and editing: nothing is
+re-encoded. The app asks exiftool which formats it can actually write, so
+editing is never offered where it would fail at save time.
+
+## Format support
+
+| Format | Read | Wipe | Edit |
+| --- | --- | --- | --- |
+| PNG, JPEG, HEIC, TIFF, WebP, GIF, BMP | yes | yes | any tag |
+| PDF | yes | yes | any tag |
+| MP3 | yes | built-in ID3 code | 16 tags |
+| WAV | yes | built-in RIFF code | 12 INFO tags |
+| M4A, MP4, AAC | yes | ffmpeg | 13 tags |
+| FLAC, OGG, Opus | yes | ffmpeg | 11 tags |
+| MOV | yes | ffmpeg | any tag |
+| DOCX, XLSX, PPTX | yes | yes | 15 properties |
+| ODT, ODS, ODP, ODG | yes | yes | 9 properties |
+| SVG, HTML, Markdown, text | yes | yes | no |
+| AIFF, WMA, MKV, WebM, AVI | yes | ffmpeg | no |
+
+Reading works more broadly than this table suggests — exiftool recognises
+hundreds of formats, and anything it can read shows up in the tree. The table
+is about writing.
+
+exiftool cannot write MP3, WAV, DOCX or ODT, so those have their own writers:
+ID3v2/v1/APE parsing for MP3, RIFF chunk rewriting for WAV, and XML patching
+inside the zip package for Office and OpenDocument files.
+
+## Running from source
 
 ```bash
-python3 metadata_viewer.py [bestand]
+python3 metadata_viewer.py [file]
 ```
 
-Nodig: Python 3.10+ met tkinter. Optioneel maar aanbevolen: `exiftool` (lezen en
-schrijven van beeldformaten), `ffmpeg` (audio en video anders dan MP3/WAV),
-`mutagen` (audiotags), `pillow` (voorbeeldweergave).
+Requires Python 3.10+ with tkinter. Optional but recommended: `exiftool`
+(reading and writing image formats), `ffmpeg` (audio and video other than
+MP3/WAV), `mutagen` (audio tags), `pillow` (image preview).
 
-## macOS bouwen
+## Building for macOS
 
 ```bash
 ./build_macos.sh
 ```
 
-Levert `dist/Metadata Viewer.app` en een `.dmg`. exiftool wordt meeverpakt — het
-is een Perl-script en macOS levert zelf perl mee, dus de app werkt op een Mac
-zonder Homebrew. ffmpeg zit er niet in (te groot, en de licentie hangt af van de
-build); zonder ffmpeg werken MP3, WAV, afbeeldingen en documenten gewoon, maar
-M4A, FLAC, OGG en video niet.
+Produces `dist/Metadata Viewer.app` and a `.dmg`. exiftool is bundled — it is a
+Perl script and macOS ships its own perl, so the app runs on a Mac without
+Homebrew. ffmpeg is not bundled (too large, and its licence depends on the
+build); without it MP3, WAV, images and documents work fine, but M4A, FLAC, OGG
+and video do not.
 
-## Windows bouwen
+## Building for Windows
 
-Een `.exe` kan **niet** vanaf macOS of Linux gemaakt worden: PyInstaller
-cross-compileert niet. Er zijn twee wegen.
+A `.exe` **cannot** be built from macOS or Linux: PyInstaller does not
+cross-compile. Two options.
 
-**Op een Windows-machine:**
+**On a Windows machine:**
 
 ```powershell
 .\build_windows.ps1
 ```
 
-Haalt de actuele exiftool voor Windows op, verpakt die mee en levert
-`dist\Metadata Viewer.exe` als één bestand. Met `-SkipExifTool` bouwt hij zonder,
-en zoekt de app exiftool op het PATH.
+Fetches the current Windows build of exiftool, bundles it, and produces a
+single-file `dist\Metadata Viewer.exe`. Pass `-SkipExifTool` to build without
+it, in which case the app looks for exiftool on PATH at runtime.
 
-**Zonder Windows-machine**, via GitHub Actions: push deze map naar een
-repository en start de workflow `Build` handmatig (of push een `v*`-tag). De
-`.exe` en de `.dmg` verschijnen als artefacten onder die run.
+**Without a Windows machine**, via GitHub Actions: run the `Build` workflow
+manually (or push a `v*` tag). The `.exe` and the `.dmg` appear as artifacts
+under that run.
 
-## Ondertekening
+## Signing
 
-Beide builds zijn niet ondertekend. macOS toont bij de eerste start een
-waarschuwing van Gatekeeper; openen via rechtsklik → Openen omzeilt die.
-Windows SmartScreen doet iets vergelijkbaars. Een ontwikkelaarscertificaat lost
-dat op maar is niet gratis.
+Neither build is signed. macOS shows a Gatekeeper warning on first launch;
+right-click → Open gets past it. Windows SmartScreen does something similar. A
+developer certificate solves this but is not free.
+
+## Notes
+
+The app is read-only until you explicitly wipe or save. Wiping and saving write
+to a `.cleaned` copy by default; overwriting the original is behind a separate
+confirmation and always leaves a `.bak` alongside.
+
+Metadata is only what sits *in* the file. Invisible watermarks embedded in the
+pixels or the audio signal itself — SynthID, Suno's audio watermark and similar
+— survive any metadata strip and are not visible to this or any other metadata
+tool. The app says so rather than implying a file is "clean".
+
+The interface is in Dutch.
