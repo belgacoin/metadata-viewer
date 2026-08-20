@@ -63,19 +63,14 @@ MP3/WAV), `mutagen` (audio tags), `pillow` (image preview).
 
 ## Installing the ready-made app
 
-### macOS
+Step-by-step, beginner-friendly instructions (in Dutch) are in
+**[INSTALL.md](INSTALL.md)**. In short:
 
-1. Download the latest `Metadata Viewer X.Y.dmg` from the GitHub Actions
-   artifacts (or from a release, if published).
-2. Open the `.dmg` and drag `Metadata Viewer.app` to **Applications**.
-3. On first launch, right-click the app → **Open** to bypass Gatekeeper,
-   because the build is not signed.
-
-### Windows
-
-1. Download the latest `Metadata Viewer.exe` from the GitHub Actions artifacts.
-2. Run it directly; a single-file executable is produced.
-3. Windows SmartScreen may warn because the build is not signed.
+- **Windows:** download `Metadata Viewer.exe` from the
+  [latest release](https://github.com/belgacoin/metadata-viewer/releases) and
+  double-click it. If SmartScreen warns, click **More info → Run anyway**.
+- **macOS:** download the `.dmg`, drag `Metadata Viewer.app` to Applications,
+  and right-click → **Open** on first launch (the build is not signed).
 
 ## Building for macOS
 
