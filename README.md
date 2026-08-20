@@ -15,6 +15,10 @@ privacy-sensitive fields, and lets you change or remove them.
 - **Wipe** all metadata, or only the AI and C2PA traces while keeping the rest.
 - **Edit** individual tags, add new ones, delete others. Nothing touches disk
   until you save, and saving writes to a copy by default.
+- **Deep inspection** detects hidden structure and steganographic traces:
+  C2PA / Content Credentials manifests, embedded file signatures, trailing data,
+  LSB anomalies in lossless images, invisible Unicode characters, whitespace
+  channels and encoded payloads.
 
 Audio streams stay bit-identical through both wiping and editing: nothing is
 re-encoded. The app asks exiftool which formats it can actually write, so
@@ -50,11 +54,28 @@ inside the zip package for Office and OpenDocument files.
 python3 metadata_viewer.py [file]
 ```
 
-Het hulpbestand `deep_inspection.py` moet naast `metadata_viewer.py` staan; het heeft geen extra afhankelijkheden.
+The helper file `deep_inspection.py` must live next to `metadata_viewer.py`;
+it has no extra dependencies.
 
 Requires Python 3.10+ with tkinter. Optional but recommended: `exiftool`
 (reading and writing image formats), `ffmpeg` (audio and video other than
 MP3/WAV), `mutagen` (audio tags), `pillow` (image preview).
+
+## Installing the ready-made app
+
+### macOS
+
+1. Download the latest `Metadata Viewer X.Y.dmg` from the GitHub Actions
+   artifacts (or from a release, if published).
+2. Open the `.dmg` and drag `Metadata Viewer.app` to **Applications**.
+3. On first launch, right-click the app → **Open** to bypass Gatekeeper,
+   because the build is not signed.
+
+### Windows
+
+1. Download the latest `Metadata Viewer.exe` from the GitHub Actions artifacts.
+2. Run it directly; a single-file executable is produced.
+3. Windows SmartScreen may warn because the build is not signed.
 
 ## Building for macOS
 
@@ -87,6 +108,41 @@ it, in which case the app looks for exiftool on PATH at runtime.
 manually (or push a `v*` tag). The `.exe` and the `.dmg` appear as artifacts
 under that run.
 
+## What the deep inspection panel looks for
+
+The deep inspection module searches the file bytes for traces that normal
+metadata tools do not show:
+
+- **C2PA / Content Credentials**: JUMBF superboxes and CBOR assertion stores,
+  including source type (`trainedAlgorithmicMedia`, `compositeWith...`),
+  software agents and AI-model statements.
+- **Embedded file signatures**: known file magic numbers (ZIP, RAR, PDF, ELF, EXE,
+  PNG, JPEG, MP4, WAV and more) hidden inside other files. Internal ZIP entries
+  in Office/ODF documents are treated as structure, not as hidden files.
+- **Trailing data**: bytes appended after the natural end of PNG, JPEG, GIF,
+  PDF and WAV containers, with a text preview and entropy estimate.
+- **LSB analysis**: per-colour-channel least-significant-bit inspection of
+  lossless images (PNG, BMP, TIFF, WebP, GIF), looking for readable text runs
+  and chi-square balance anomalies.
+- **Invisible Unicode**: zero-width spaces/joiners, BiDi controls, variation
+  selectors and language tag characters.
+- **Whitespace channels**: trailing spaces or tabs at line endings, mixed
+  indentation and unusual line endings that can carry steganographic payloads.
+- **Encoded payloads**: blocks that look like Base64, hex or percent-encoded
+  strings.
+
+## Watermarks and detection limits
+
+The app detects **metadata and structural traces** of AI-generated content:
+C2PA manifests, tool claims in XMP, and known generator signatures.
+
+It does **not** detect provider-specific **statistical** watermarks embedded in
+the content itself — Claude layer-2 / Anthropic watermarks, SynthID-Text,
+OpenAI text watermarks, SynthID image/audio watermarks, Suno's audio watermark,
+etc. Those require the provider's secret detection key and/or model access and
+survive any metadata strip. This tool reports what it can see in the file rather
+than claiming a file is "clean".
+
 ## Signing
 
 Neither build is signed. macOS shows a Gatekeeper warning on first launch;
@@ -102,12 +158,6 @@ confirmation and always leaves a `.bak` alongside.
 Metadata is only what sits *in* the file. Invisible watermarks embedded in the
 pixels or the audio signal itself — SynthID, Suno's audio watermark and similar
 — survive any metadata strip and are not visible to this or any other metadata
-tool. The app says so rather than implying a file is "clean".
-
-The new **deep inspection** panel additionally reports C2PA / Content
-Credentials details, embedded-file signatures, trailing data, LSB anomalies in
-lossless images, invisible Unicode, whitespace channels and encoded payloads.
-It is still read-only and cannot detect provider-specific statistical
-watermarks (Claude, SynthID-Text, etc.) without the provider's secret keys.
+tool.
 
 The interface is in Dutch.
