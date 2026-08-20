@@ -1,15 +1,20 @@
 name: Build
 
 # Builds the Windows .exe (and a macOS .dmg) on GitHub's runners, so no
-# Windows machine or Mac of your own is needed. Artifacts appear under the run.
+# Windows machine or Mac of your own is needed.
 #
-# Trigger manually via Actions -> Build -> Run workflow, or push a v* tag.
+# - On a push to main (or manual run): artifacts appear under the run.
+# - On a v* tag: the binaries are also attached to a GitHub Release, so
+#   anyone can download and install them without digging through artifacts.
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     tags: ["v*"]
+
+permissions:
+  contents: write
 
 jobs:
   windows:
@@ -26,6 +31,12 @@ jobs:
         with:
           name: metadata-viewer-windows
           path: dist/*.exe
+      - name: Upload .exe to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+          generate_release_notes: true
 
   macos:
     runs-on: macos-latest
@@ -47,3 +58,9 @@ jobs:
       - name: Verify deep_inspection.py is bundled
         run: |
           test -f "dist/Metadata Viewer.app/Contents/MacOS/deep_inspection.py"
+      - name: Upload .dmg to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg
+          generate_release_notes: true
