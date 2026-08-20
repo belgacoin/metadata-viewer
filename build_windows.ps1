@@ -28,7 +28,19 @@ if (-not $SkipExifTool) {
     $zip = Join-Path $env:TEMP "exiftool.zip"
     $work = Join-Path $env:TEMP "exiftool-extract"
 
-    Invoke-WebRequest -Uri $url -OutFile $zip
+    # SourceForge redirects to a mirror and is flaky in CI. Use curl.exe (ships
+    # with Windows 10+) with retries instead of Invoke-WebRequest, which throws
+    # an opaque "OperationStopped" on transient failures.
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($curl) {
+        & curl.exe -L --fail --retry 5 --retry-delay 3 --retry-all-errors `
+            -o $zip $url
+        if ($LASTEXITCODE -ne 0) {
+            throw "curl.exe download van exiftool mislukt (exit $LASTEXITCODE)"
+        }
+    } else {
+        Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+    }
     Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
     Expand-Archive -Path $zip -DestinationPath $work
 
