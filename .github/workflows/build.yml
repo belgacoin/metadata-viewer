@@ -1,11 +1,14 @@
 name: Build
 
 # Builds the Windows .exe (and a macOS .dmg) on GitHub's runners, so no
-# Windows machine of your own is needed. Artifacts appear under the run.
+# Windows machine or Mac of your own is needed. Artifacts appear under the run.
+#
+# Trigger manually via Actions -> Build -> Run workflow, or push a v* tag.
 
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags: ["v*"]
 
 jobs:
@@ -16,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build
+      - name: Build Windows .exe
         shell: pwsh
         run: .\build_windows.ps1
       - uses: actions/upload-artifact@v4
@@ -31,13 +34,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Dependencies
+      - name: Install dependencies
         run: |
           brew install exiftool
           python -m pip install --upgrade pyinstaller pillow mutagen
-      - name: Build
+      - name: Build macOS .dmg
         run: ./build_macos.sh
       - uses: actions/upload-artifact@v4
         with:
           name: metadata-viewer-macos
           path: dist/*.dmg
+      - name: Verify deep_inspection.py is bundled
+        run: |
+          test -f "dist/Metadata Viewer.app/Contents/MacOS/deep_inspection.py"
