@@ -57,5 +57,11 @@ $args += "metadata_viewer.py"
 
 python -m PyInstaller @args
 
+# Ensure deep_inspection.py lands next to the unpacked executable.
+$exeDir = Join-Path $PSScriptRoot "dist"
+if (Test-Path $exeDir) {
+    Copy-Item deep_inspection.py $exeDir -Force
+}
+
 Write-Host ""
 Write-Host "Klaar: dist\Metadata Viewer.exe"

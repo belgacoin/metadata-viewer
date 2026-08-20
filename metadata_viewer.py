@@ -21,6 +21,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import deep_inspection
+
 APP_TITLE = "Metadata Viewer"
 
 SKILL_SCRIPTS = Path.home() / ".claude" / "skills" / "remove-ai-marks" / "scripts"
@@ -1021,6 +1023,7 @@ class MetadataViewer(ttk.Frame):
         self.exif: dict[str, object] = {}
         self.skill_report: dict[str, object] | None = None
         self.raw_markers: list[str] = []
+        self.deep_report: deep_inspection.DeepInspectionResult | None = None
         # "Group:Tag" -> new value, or None to delete. Nothing touches disk
         # until the user saves.
         self.pending: dict[str, str | None] = {}
@@ -1154,7 +1157,9 @@ class MetadataViewer(ttk.Frame):
     def _load_worker(self, path: str) -> None:
         exif, error = run_exiftool(path)
         report = run_skill_inspect(path)
-        self._results.put((path, exif, error, report, scan_raw_markers(path)))
+        raw = scan_raw_markers(path)
+        deep = deep_inspection.inspect(path)
+        self._results.put((path, exif, error, report, raw, deep))
 
     def _poll_results(self) -> None:
         """Drain finished reads on the main thread; Tk is not thread-safe."""
@@ -1172,12 +1177,14 @@ class MetadataViewer(ttk.Frame):
         error: str | None,
         report: dict[str, object] | None,
         raw_markers: list[str],
+        deep_report: deep_inspection.DeepInspectionResult,
     ) -> None:
         if path != self.path:  # a newer file was opened while this one loaded
             return
         self.exif = exif
         self.skill_report = report
         self.raw_markers = raw_markers
+        self.deep_report = deep_report
         self.pending.clear()
         self._refresh_edit_state()
         self._show_preview(path)
@@ -1253,12 +1260,27 @@ class MetadataViewer(ttk.Frame):
 
         skill_lines = summarize_skill(self.skill_report)
         if skill_lines:
+            lines.append("")
             lines.append("remove-ai-marks:")
             lines += skill_lines
         elif media_kind(self.path or "") in {"audio", "video"}:
+            lines.append("")
             lines.append("(diepte-analyse niet van toepassing op audio/video)")
         elif not (SKILL_SCRIPTS / "inspect_file.py").exists():
+            lines.append("")
             lines.append("(skill remove-ai-marks niet geïnstalleerd)")
+
+        if self.deep_report:
+            lines.append("")
+            lines.append("Diepe inspectie:")
+            lines += deep_inspection.summary(self.deep_report)
+            lines.append("")
+            lines.append(
+                "Let op: deze diepte-inspectie toont alleen sporen die in het "
+                "bestand zichtbaar zijn. Statistische watermerken van Claude, "
+                "SynthID-Text of andere providers zijn zonder hun geheime sleutel "
+                "niet detecteerbaar."
+            )
 
         self.notes.configure(state="normal")
         self.notes.delete("1.0", "end")
@@ -1637,6 +1659,7 @@ class MetadataViewer(ttk.Frame):
             "exiftool": self.exif,
             "remove_ai_marks": self.skill_report,
             "raw_markers": self.raw_markers,
+            "deep_inspection": self.deep_report,
         }
         self.clipboard_clear()
         self.clipboard_append(json.dumps(payload, indent=2, ensure_ascii=False))

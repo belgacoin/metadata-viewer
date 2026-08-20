@@ -50,6 +50,8 @@ inside the zip package for Office and OpenDocument files.
 python3 metadata_viewer.py [file]
 ```
 
+Het hulpbestand `deep_inspection.py` moet naast `metadata_viewer.py` staan; het heeft geen extra afhankelijkheden.
+
 Requires Python 3.10+ with tkinter. Optional but recommended: `exiftool`
 (reading and writing image formats), `ffmpeg` (audio and video other than
 MP3/WAV), `mutagen` (audio tags), `pillow` (image preview).
@@ -101,5 +103,11 @@ Metadata is only what sits *in* the file. Invisible watermarks embedded in the
 pixels or the audio signal itself — SynthID, Suno's audio watermark and similar
 — survive any metadata strip and are not visible to this or any other metadata
 tool. The app says so rather than implying a file is "clean".
+
+The new **deep inspection** panel additionally reports C2PA / Content
+Credentials details, embedded-file signatures, trailing data, LSB anomalies in
+lossless images, invisible Unicode, whitespace channels and encoded payloads.
+It is still read-only and cannot detect provider-specific statistical
+watermarks (Claude, SynthID-Text, etc.) without the provider's secret keys.
 
 The interface is in Dutch.

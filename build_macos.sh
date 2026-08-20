@@ -47,6 +47,12 @@ python3 -m PyInstaller \
     --hidden-import PIL._tkinter_finder \
     metadata_viewer.py >/dev/null
 
+# Ensure deep_inspection.py is collected next to the main script inside the bundle.
+PYTHON_PKG="$DIST/$APP_NAME.app/Contents/MacOS"
+if [[ -d "$PYTHON_PKG" ]]; then
+    cp deep_inspection.py "$PYTHON_PKG/"
+fi
+
 echo "==> dmg maken"
 STAGING="$(mktemp -d)"
 cp -R "$DIST/$APP_NAME.app" "$STAGING/"
